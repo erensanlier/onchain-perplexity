@@ -59,3 +59,58 @@ pnpm dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000/).
+
+## Blockchain Data Integration
+
+This project includes integration with Cryo MCP to provide blockchain data querying capabilities. The chatbot can:
+
+- Query blockchain datasets (blocks, transactions, logs, etc.)
+- Run SQL queries on blockchain data
+- Get information about the latest Ethereum block
+- List available blockchain datasets
+
+### Setup
+
+#### Option 1: Docker Compose (recommended)
+
+Run the entire stack (Next.js app, PostgreSQL, and Cryo MCP) with one command:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+- Next.js application on port 3000
+- PostgreSQL database on port 5432
+- Cryo MCP server on port 8000
+
+All the services are properly connected and configured to work together.
+
+#### Option 2: Local Development with Docker Services
+
+If you prefer developing the Next.js app locally:
+
+1. Start just the supporting services:
+   ```bash
+   docker-compose up -d postgres cryo-mcp
+   ```
+
+2. Update your local `.env` file:
+   ```
+   POSTGRES_URL=postgres://postgres:postgres@localhost:5432/onchain_perplexity
+   ```
+
+3. Run the Next.js app locally:
+   ```bash
+   pnpm install
+   pnpm run db:migrate
+   pnpm run dev
+   ```
+
+### Usage Examples
+
+You can ask the chatbot questions like:
+- "What is the latest Ethereum block number?"
+- "Show me transactions from the latest 100 blocks"
+- "Run a SQL query to find the blocks with the highest gas used in the last 1000 blocks"
+- "What blockchain datasets can I query?"

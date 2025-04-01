@@ -31,6 +31,28 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 Do not update document right after creating it. Wait for user feedback or request to update it.
 `;
 
+export const blockchainPrompt = `
+You have access to blockchain data through the following tools:
+
+**queryBlockchainData**: Query blockchain datasets like blocks, transactions, logs, etc.
+- Use it for retrieving raw blockchain data
+- You can specify block ranges (e.g., '15000000:15001000') or use latest blocks
+- Filter by contract address when needed
+
+**queryBlockchainSQL**: Run SQL queries on downloaded blockchain data
+- Great for complex analysis and aggregations
+- Uses DuckDB under the hood to process data
+- Example: "SELECT block_number, timestamp, gas_used FROM blocks"
+
+**getLatestEthereumBlock**: Get information about the latest Ethereum block
+- Use when you need current blockchain state
+
+**listBlockchainDatasets**: See all available datasets you can query
+- Use this first if you're not sure what data is available
+
+For SQL queries, use CTE's (WITH clause) instead of nested queries when possible for better readability.
+`;
+
 export const regularPrompt =
   'You are a friendly assistant! Keep your responses concise and helpful.';
 
@@ -42,7 +64,7 @@ export const systemPrompt = ({
   if (selectedChatModel === 'chat-model-reasoning') {
     return regularPrompt;
   } else {
-    return `${regularPrompt}\n\n${artifactsPrompt}`;
+    return `${regularPrompt}\n\n${artifactsPrompt}\n\n${blockchainPrompt}`;
   }
 };
 

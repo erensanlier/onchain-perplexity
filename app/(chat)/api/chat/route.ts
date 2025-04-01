@@ -4,6 +4,7 @@ import {
   createDataStreamResponse,
   smoothStream,
   streamText,
+  Tool,
 } from 'ai';
 import { auth } from '@/app/(auth)/auth';
 import { systemPrompt } from '@/lib/ai/prompts';
@@ -23,8 +24,10 @@ import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
 import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
+import { getBlockchainTools } from '@/lib/ai/tools/blockchain-data';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
+import { closeMCPClient } from '@/lib/ai/mcp-client';
 
 export const maxDuration = 60;
 
@@ -79,6 +82,9 @@ export async function POST(request: Request) {
       ],
     });
 
+    // Get blockchain tools
+    const blockchainTools = await getBlockchainTools();
+
     return createDataStreamResponse({
       execute: (dataStream) => {
         const result = streamText({
@@ -86,18 +92,22 @@ export async function POST(request: Request) {
           system: systemPrompt({ selectedChatModel }),
           messages,
           maxSteps: 5,
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'getWeather',
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
+          experimental_activeTools: selectedChatModel === 'chat-model-reasoning'
+            ? undefined
+            : [
+                'getWeather',
+                'createDocument',
+                'updateDocument',
+                'requestSuggestions',
+                'queryBlockchainData',
+                'queryBlockchainSQL', 
+                'getLatestEthereumBlock',
+                'listBlockchainDatasets',
+              ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_generateMessageId: generateUUID,
           tools: {
+            // Base tools
             getWeather,
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
@@ -105,6 +115,11 @@ export async function POST(request: Request) {
               session,
               dataStream,
             }),
+            // Blockchain tools
+            queryBlockchainData: blockchainTools.queryBlockchainData as Tool<any, any>,
+            queryBlockchainSQL: blockchainTools.queryBlockchainSQL as Tool<any, any>,
+            getLatestEthereumBlock: blockchainTools.getLatestEthereumBlock as Tool<any, any>,
+            listBlockchainDatasets: blockchainTools.listBlockchainDatasets as Tool<any, any>,
           },
           onFinish: async ({ response }) => {
             if (session.user?.id) {
@@ -141,6 +156,13 @@ export async function POST(request: Request) {
                 console.error('Failed to save chat');
               }
             }
+            
+            // Close MCP client after the response completes
+            try {
+              await closeMCPClient();
+            } catch (error) {
+              console.error('Failed to close MCP client:', error);
+            }
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
@@ -154,11 +176,25 @@ export async function POST(request: Request) {
           sendReasoning: true,
         });
       },
-      onError: () => {
+      onError: (error) => {
+        console.error('Error in chat stream:', error);
+        
+        // Close MCP client on error - We can't use await here directly
+        closeMCPClient().catch(closeError => {
+          console.error('Failed to close MCP client:', closeError);
+        });
+        
         return 'Oops, an error occured!';
       },
     });
   } catch (error) {
+    // Close MCP client on catch
+    try {
+      await closeMCPClient();
+    } catch (closeError) {
+      console.error('Failed to close MCP client:', closeError);
+    }
+    
     return new Response('An error occurred while processing your request!', {
       status: 404,
     });
